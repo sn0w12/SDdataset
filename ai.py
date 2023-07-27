@@ -301,7 +301,7 @@ def main_menu():
         print("8. Process dataset and replace transparent pixels in images")
         print("0. Exit")
 
-        choice = input("Enter your choice (1/2/3/4/5/6/7/8/9): ")
+        choice = input("Enter your choice (1/2/3/4/5/6/7/8/0): ")
 
         if choice == "1":
             # Rename .safetensor files
