@@ -285,6 +285,53 @@ def process_dataset_and_replace_transparent(images_folder, similarity_threshold=
     process_dataset(images_folder, similarity_threshold)
     process_images_in_folder(images_folder)
 
+def sort_lora():
+    # Function to search for files with a given name in a directory and its subdirectories
+    def search_files(directory, name):
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                if name in file:
+                    return os.path.join(root, file)
+        return None
+
+    # Paths to the source CSV file and destination folders
+    csv_file_path = r"F:\stable-diffusion-webui\styles.csv"
+    lora_destination_folder = r"C:\Users\lucas\ai\Lora"
+    lycoris_destination_folder = r"C:\Users\lucas\ai\LyCORIS"
+
+    # Read the CSV file using pandas
+    df = pd.read_csv(csv_file_path, skiprows=1)
+
+    # Initialize lists to store the required text patterns
+    lora_patterns = []
+    lycoris_patterns = []
+
+    # Extract patterns from the entire CSV file
+    for _, row in df.iterrows():
+        for pattern in row.dropna().tolist():
+            lora_matches = re.findall(r"<lora:([^:>]+):[0-9.]+>", pattern)
+            lora_patterns.extend(lora_matches)
+
+            lycoris_matches = re.findall(r"<lyco:([^:>]+):[0-9.]+>", pattern)
+            lycoris_patterns.extend(lycoris_matches)
+
+    # Create progress bars for both sets of patterns
+    lora_progress_bar = tqdm(lora_patterns, desc="Searching Lora patterns", unit="file")
+    lycoris_progress_bar = tqdm(lycoris_patterns, desc="Searching LyCORIS patterns", unit="file")
+
+    # Search for and copy files with the found names to the destination folders
+    for pattern in lora_progress_bar:
+        file_path = search_files(r"F:\stable-diffusion-webui", pattern)
+        if file_path:
+            shutil.copy(file_path, os.path.join(lora_destination_folder, os.path.basename(file_path)))
+        lora_progress_bar.update()
+
+    for pattern in lycoris_progress_bar:
+        file_path = search_files(r"F:\stable-diffusion-webui", pattern)
+        if file_path:
+            shutil.copy(file_path, os.path.join(lycoris_destination_folder, os.path.basename(file_path)))
+        lycoris_progress_bar.update()
+
 # Main menu to choose the features
 def main_menu():
     images_folder = None
@@ -299,9 +346,10 @@ def main_menu():
         print("6. Organize files based on a tag in text files")
         print("7. Replace transparent pixels with white in images")
         print("8. Process dataset and replace transparent pixels in images")
+        print("9. Copy all loras and lycoris files that are in styles.csv to seperate folders")
         print("0. Exit")
 
-        choice = input("Enter your choice (1/2/3/4/5/6/7/8/0): ")
+        choice = input("Enter your choice (1/2/3/4/5/6/7/8/9/0): ")
 
         if choice == "1":
             # Rename .safetensor files
