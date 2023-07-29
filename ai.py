@@ -11,6 +11,7 @@ import sys
 from send2trash import send2trash
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+import pandas as pd
 
 # Function to rename .safetensor files
 def rename_safetensor_files(directory, prefix):
@@ -385,13 +386,14 @@ def main_menu():
             find_and_copy_files(root_folder, keyword)
         elif choice == "7":
             # Replace transparent pixels with white in images
-            if images_folder is None:
-                images_folder = input("Enter the path to the folder containing images: ")
+            images_folder = input("Enter the path to the folder containing images: ")
             process_images_in_folder(images_folder)
         elif choice == "8":
             # Process dataset and replace transparent pixels in images
             images_folder = input("Enter the path to the folder containing images: ")
             process_dataset_and_replace_transparent(images_folder)
+        elif choice == "9":
+            sort_lora()
         elif choice == "0":
             # Exit the program
             print("Exiting...")
