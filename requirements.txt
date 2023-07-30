@@ -1,11 +1,8 @@
-concurrent.futures
 cosine_similarity
 numpy
 pandas
 Pillow
 scikit-learn
 send2trash
-subprocess
-shutil
 tqdm
 fiftyone
