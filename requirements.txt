@@ -1,8 +1,9 @@
-cosine_similarity
-numpy
-pandas
 Pillow
-scikit-learn
-send2trash
 tqdm
-fiftyone
+numpy
+scikit-learn
+pandas
+matplotlib
+scikit-image
+scipy
+send2trash
