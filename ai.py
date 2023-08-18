@@ -12,6 +12,15 @@ from send2trash import send2trash
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
+import matplotlib.pyplot as plt
+from skimage.filters import gaussian
+from skimage.feature import canny
+from skimage.morphology import dilation
+from scipy import ndimage as ndi
+from skimage.measure import label, regionprops
+from skimage.color import label2rgb
+import tkinter as tk
+from tkinter import filedialog
 
 # Function to rename .safetensor files
 def rename_safetensor_files(directory, prefix):
@@ -285,6 +294,135 @@ def process_images_in_folder(folder_path, batch_size=10):
 def process_dataset_and_replace_transparent(images_folder, similarity_threshold=0.985):
     process_dataset(images_folder, similarity_threshold)
     process_images_in_folder(images_folder)
+    
+def panel_extraction():
+    # Open a directory dialog for selecting the image directory
+    dir_path = filedialog.askdirectory(title="Select a Directory")
+
+    if not dir_path:
+        print("No directory selected.")
+        exit()
+    # Load all images from the selected directory
+    image_files = [f for f in os.listdir(dir_path) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
+
+    # Initialize a counter for saved panels
+    total_saved_panels = 0
+
+    # Minimum panel area threshold (adjust as needed)
+    min_panel_area = 0.1  # For example, 1% of the total image area
+    # Process the images twice
+    for iteration in range(1):
+        print(f"Running iteration {iteration + 1}...")
+
+        # Process each image
+        for image_file in tqdm(image_files, desc="Processing Images", unit="image"):
+            image_path = os.path.join(dir_path, image_file)
+            im = Image.open(image_path).convert('L')
+            im_array = np.array(im)
+
+            plt.figure(figsize=(18, 12))
+
+            gs = plt.GridSpec(2, 4)
+
+            plt.subplot(gs[0, 0])
+            plt.imshow(im_array, cmap='gray')
+            plt.title("Original Grayscale Image")
+
+            # Apply Gaussian blur
+            blurred_image = gaussian(im_array, sigma=2.5)
+
+            plt.subplot(2, 3, 2)
+            plt.imshow(blurred_image, cmap='gray')
+            plt.title("Blurred Image")
+
+            # Apply edge detection
+            edges = canny(blurred_image)
+
+            plt.subplot(2, 3, 3)
+            plt.imshow(edges, cmap='gray')
+            plt.title("Edge Detection")
+
+            # Enhance edges
+            thick_edges = dilation(dilation(edges))
+
+            plt.subplot(2, 3, 4)
+            plt.imshow(thick_edges, cmap='gray')
+            plt.title("Enhanced Edges")
+
+            # Fill holes in the edges
+            segmentation = ndi.binary_fill_holes(thick_edges)
+
+            # Erode the segmentation to remove small lines and artifacts
+            num_erosion_iterations = 3  # Increase this value for more erosion
+            eroded_segmentation = ndi.binary_erosion(segmentation, iterations=num_erosion_iterations)
+
+            # Dilate the eroded segmentation back to the original size
+            dilated_segmentation = ndi.binary_dilation(eroded_segmentation, iterations=2)
+
+            # Label connected components
+            labels = label(dilated_segmentation)
+
+            plt.subplot(2, 3, 6)
+            plt.imshow(label2rgb(labels, bg_label=0))
+            plt.title("Labeled Regions")
+
+            # Define functions
+            def do_bboxes_overlap(a, b):
+                return (
+                    a[0] < b[2] and
+                    a[2] > b[0] and
+                    a[1] < b[3] and
+                    a[3] > b[1] and
+                    ((a[0] + a[2]) / 2 < (b[0] + b[2]) / 2 or (a[1] + a[3]) / 2 < (b[1] + b[3]) / 2)
+                )
+
+            def merge_bboxes(a, b):
+                return (
+                    min(a[0], b[0]),
+                    min(a[1], b[1]),
+                    max(a[2], b[2]),
+                    max(a[3], b[3])
+                )
+
+            # Identify panels
+            regions = regionprops(labels)
+            panels = []
+
+            for region in regions:
+                for i, panel in enumerate(panels):
+                    if do_bboxes_overlap(region.bbox, panel):
+                        panels[i] = merge_bboxes(panel, region.bbox)
+                        break
+                else:
+                    panels.append(region.bbox)
+
+            # Filter out small panels
+            min_panel_area = 0.1  # For example, 1% of the total image area
+            panels = [bbox for bbox in panels if (bbox[2] - bbox[0]) * (bbox[3] - bbox[1]) >= min_panel_area * im_array.size]
+
+            # Create 'panels' directory within the image directory
+            panels_dir = os.path.join(dir_path, 'panels')
+            os.makedirs(panels_dir, exist_ok=True)
+
+            # Save individual panels
+            num_saved_panels = 0  # Initialize a counter for saved panels in this image
+            for i, bbox in enumerate(panels):
+                panel = im_array[bbox[0]:bbox[2], bbox[1]:bbox[3]]
+                panel_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+                if panel_area >= min_panel_area * im_array.size and panel_area <= 0.9 * im_array.size:
+                    panel_path = os.path.join(panels_dir, f'{i}_{image_file}')
+                    panel_image = Image.fromarray(panel)
+                    panel_image.save(panel_path)
+                    num_saved_panels += 1
+            
+            # Update the total saved panels counter
+            total_saved_panels += num_saved_panels
+            
+            # Close the figures to free up memory
+            plt.close('all')
+        
+    # Print the total number of saved panels
+    print(f"Total {total_saved_panels} panels saved across {len(image_files)} images.")
 
 def sort_lora():
     # Function to search for files with a given name in a directory and its subdirectories
@@ -332,6 +470,23 @@ def sort_lora():
         if file_path:
             shutil.copy(file_path, os.path.join(lycoris_destination_folder, os.path.basename(file_path)))
         lycoris_progress_bar.update()
+        
+def delete_files_without_words(folder_path):
+    # List of words that should be present in the txt files
+    words_to_check = ['1girl', '1boy']
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.txt'):
+            txt_path = os.path.join(folder_path, filename)
+            image_path = os.path.join(folder_path, f"{os.path.splitext(filename)[0]}.jpg")
+
+            with open(txt_path, 'r') as txt_file:
+                content = txt_file.read()
+                
+            if all(word not in content for word in words_to_check):
+                os.remove(txt_path)
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                print(f"Deleted {filename} and its corresponding image.")
 
 # Main menu to choose the features
 def main_menu():
@@ -348,9 +503,11 @@ def main_menu():
         print("7. Replace transparent pixels with white in images")
         print("8. Process dataset and replace transparent pixels in images")
         print("9. Copy all loras and lycoris files that are in styles.csv to seperate folders")
+        print("10. Try to seperate a manga page into individual panels")
+        print("11. Remove all images and textfiles without 1girl or 1boy in them")
         print("0. Exit")
 
-        choice = input("Enter your choice (1/2/3/4/5/6/7/8/9/0): ")
+        choice = input("Enter your choice (1/2/3/4/5/6/7/8/9/10/11/0): ")
 
         if choice == "1":
             # Rename .safetensor files
@@ -394,6 +551,11 @@ def main_menu():
             process_dataset_and_replace_transparent(images_folder)
         elif choice == "9":
             sort_lora()
+        elif choice == "10":
+            panel_extraction()
+        elif choice == "11":
+            images_folder = input("Enter the path to the folder containing images and text files: ")
+            delete_files_without_words(folder_path)
         elif choice == "0":
             # Exit the program
             print("Exiting...")
