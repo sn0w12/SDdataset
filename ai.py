@@ -21,6 +21,9 @@ from skimage.measure import label, regionprops
 from skimage.color import label2rgb
 import tkinter as tk
 from tkinter import filedialog
+import cv2
+import random
+import string
 
 # Function to rename .safetensor files
 def rename_safetensor_files(directory, prefix):
@@ -310,110 +313,83 @@ def panel_extraction():
 
     # Minimum panel area threshold (adjust as needed)
     min_panel_area = 0.1  # For example, 1% of the total image area
-    # Process the images twice
-    for iteration in range(1):
-        print(f"Running iteration {iteration + 1}...")
 
-        # Process each image
-        for image_file in tqdm(image_files, desc="Processing Images", unit="image"):
-            image_path = os.path.join(dir_path, image_file)
-            im = Image.open(image_path).convert('L')
-            im_array = np.array(im)
+    # Process each image
+    for image_file in tqdm(image_files, desc="Processing Images", unit="image"):
+        image_path = os.path.join(dir_path, image_file)
+        im = Image.open(image_path).convert('L')
+        im_array = np.array(im)
 
-            plt.figure(figsize=(18, 12))
+        # Apply Gaussian blur
+        blurred_image = gaussian(im_array, sigma=2.5)
 
-            gs = plt.GridSpec(2, 4)
+        # Apply edge detection
+        edges = canny(blurred_image)
 
-            plt.subplot(gs[0, 0])
-            plt.imshow(im_array, cmap='gray')
-            plt.title("Original Grayscale Image")
+        # Enhance edges
+        thick_edges = dilation(dilation(edges))
 
-            # Apply Gaussian blur
-            blurred_image = gaussian(im_array, sigma=2.5)
+        # Fill holes in the edges
+        segmentation = ndi.binary_fill_holes(thick_edges)
 
-            plt.subplot(2, 3, 2)
-            plt.imshow(blurred_image, cmap='gray')
-            plt.title("Blurred Image")
+        # Erode the segmentation to remove small lines and artifacts
+        num_erosion_iterations = 3  # Increase this value for more erosion
+        eroded_segmentation = ndi.binary_erosion(segmentation, iterations=num_erosion_iterations)
 
-            # Apply edge detection
-            edges = canny(blurred_image)
+        # Dilate the eroded segmentation back to the original size
+        dilated_segmentation = ndi.binary_dilation(eroded_segmentation, iterations=2)
 
-            plt.subplot(2, 3, 3)
-            plt.imshow(edges, cmap='gray')
-            plt.title("Edge Detection")
+        # Label connected components
+        labels = label(dilated_segmentation)
 
-            # Enhance edges
-            thick_edges = dilation(dilation(edges))
+        # Define functions
+        def do_bboxes_overlap(a, b):
+            return (
+                a[0] < b[2] and
+                a[2] > b[0] and
+                a[1] < b[3] and
+                a[3] > b[1] and
+                ((a[0] + a[2]) / 2 < (b[0] + b[2]) / 2 or (a[1] + a[3]) / 2 < (b[1] + b[3]) / 2)
+            )
 
-            plt.subplot(2, 3, 4)
-            plt.imshow(thick_edges, cmap='gray')
-            plt.title("Enhanced Edges")
+        def merge_bboxes(a, b):
+            return (
+                min(a[0], b[0]),
+                min(a[1], b[1]),
+                max(a[2], b[2]),
+                max(a[3], b[3])
+            )
 
-            # Fill holes in the edges
-            segmentation = ndi.binary_fill_holes(thick_edges)
+        # Identify panels
+        regions = regionprops(labels)
+        panels = []
 
-            # Erode the segmentation to remove small lines and artifacts
-            num_erosion_iterations = 3  # Increase this value for more erosion
-            eroded_segmentation = ndi.binary_erosion(segmentation, iterations=num_erosion_iterations)
+        for region in regions:
+            for i, panel in enumerate(panels):
+                if do_bboxes_overlap(region.bbox, panel):
+                    panels[i] = merge_bboxes(panel, region.bbox)
+                    break
+            else:
+                panels.append(region.bbox)
 
-            # Dilate the eroded segmentation back to the original size
-            dilated_segmentation = ndi.binary_dilation(eroded_segmentation, iterations=2)
+        # Filter out small panels
+        min_panel_area = 0.1  # For example, 1% of the total image area
+        panels = [bbox for bbox in panels if (bbox[2] - bbox[0]) * (bbox[3] - bbox[1]) >= min_panel_area * im_array.size]
 
-            # Label connected components
-            labels = label(dilated_segmentation)
+        # Create 'panels' directory within the image directory
+        panels_dir = os.path.join(dir_path, 'panels')
+        os.makedirs(panels_dir, exist_ok=True)
 
-            plt.subplot(2, 3, 6)
-            plt.imshow(label2rgb(labels, bg_label=0))
-            plt.title("Labeled Regions")
-
-            # Define functions
-            def do_bboxes_overlap(a, b):
-                return (
-                    a[0] < b[2] and
-                    a[2] > b[0] and
-                    a[1] < b[3] and
-                    a[3] > b[1] and
-                    ((a[0] + a[2]) / 2 < (b[0] + b[2]) / 2 or (a[1] + a[3]) / 2 < (b[1] + b[3]) / 2)
-                )
-
-            def merge_bboxes(a, b):
-                return (
-                    min(a[0], b[0]),
-                    min(a[1], b[1]),
-                    max(a[2], b[2]),
-                    max(a[3], b[3])
-                )
-
-            # Identify panels
-            regions = regionprops(labels)
-            panels = []
-
-            for region in regions:
-                for i, panel in enumerate(panels):
-                    if do_bboxes_overlap(region.bbox, panel):
-                        panels[i] = merge_bboxes(panel, region.bbox)
-                        break
-                else:
-                    panels.append(region.bbox)
-
-            # Filter out small panels
-            min_panel_area = 0.1  # For example, 1% of the total image area
-            panels = [bbox for bbox in panels if (bbox[2] - bbox[0]) * (bbox[3] - bbox[1]) >= min_panel_area * im_array.size]
-
-            # Create 'panels' directory within the image directory
-            panels_dir = os.path.join(dir_path, 'panels')
-            os.makedirs(panels_dir, exist_ok=True)
-
-            # Save individual panels
-            num_saved_panels = 0  # Initialize a counter for saved panels in this image
-            for i, bbox in enumerate(panels):
-                panel = im_array[bbox[0]:bbox[2], bbox[1]:bbox[3]]
-                panel_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
-                if panel_area >= min_panel_area * im_array.size and panel_area <= 0.9 * im_array.size:
-                    panel_path = os.path.join(panels_dir, f'{i}_{image_file}')
-                    panel_image = Image.fromarray(panel)
-                    panel_image.save(panel_path)
-                    num_saved_panels += 1
+        # Save individual panels
+        num_saved_panels = 0  # Initialize a counter for saved panels in this image
+        for i, bbox in enumerate(panels):
+            panel = im_array[bbox[0]:bbox[2], bbox[1]:bbox[3]]
+            panel_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+            if panel_area >= min_panel_area * im_array.size and panel_area <= 0.9 * im_array.size:
+                panel_path = os.path.join(panels_dir, f'{i}_{image_file}')
+                panel_image = Image.fromarray(panel)
+                panel_image.save(panel_path)
+                num_saved_panels += 1
             
             # Update the total saved panels counter
             total_saved_panels += num_saved_panels
@@ -425,7 +401,6 @@ def panel_extraction():
     print(f"Total {total_saved_panels} panels saved across {len(image_files)} images.")
 
 def sort_lora():
-    # Function to search for files with a given name in a directory and its subdirectories
     def search_files(directory, name):
         for root, dirs, files in os.walk(directory):
             for file in files:
@@ -433,43 +408,27 @@ def sort_lora():
                     return os.path.join(root, file)
         return None
 
-    # Paths to the source CSV file and destination folders
-    csv_file_path = r"F:\stable-diffusion-webui\styles.csv"
+    csv_file_path = r"F:\Ai\stable-diffusion-webui\styles.csv"
     lora_destination_folder = r"C:\Users\lucas\ai\Lora"
-    lycoris_destination_folder = r"C:\Users\lucas\ai\LyCORIS"
 
-    # Read the CSV file using pandas
-    df = pd.read_csv(csv_file_path, skiprows=1)
+    df = pd.read_csv(csv_file_path, skiprows=7)
 
-    # Initialize lists to store the required text patterns
     lora_patterns = []
-    lycoris_patterns = []
 
-    # Extract patterns from the entire CSV file
     for _, row in df.iterrows():
         for pattern in row.dropna().tolist():
+            if not isinstance(pattern, str):
+                continue  # Skip non-string patterns
             lora_matches = re.findall(r"<lora:([^:>]+):[0-9.]+>", pattern)
             lora_patterns.extend(lora_matches)
 
-            lycoris_matches = re.findall(r"<lyco:([^:>]+):[0-9.]+>", pattern)
-            lycoris_patterns.extend(lycoris_matches)
-
-    # Create progress bars for both sets of patterns
     lora_progress_bar = tqdm(lora_patterns, desc="Searching Lora patterns", unit="file")
-    lycoris_progress_bar = tqdm(lycoris_patterns, desc="Searching LyCORIS patterns", unit="file")
 
-    # Search for and copy files with the found names to the destination folders
     for pattern in lora_progress_bar:
-        file_path = search_files(r"F:\stable-diffusion-webui", pattern)
+        file_path = search_files(r"F:\Ai\stable-diffusion-webui", pattern)
         if file_path:
             shutil.copy(file_path, os.path.join(lora_destination_folder, os.path.basename(file_path)))
         lora_progress_bar.update()
-
-    for pattern in lycoris_progress_bar:
-        file_path = search_files(r"F:\stable-diffusion-webui", pattern)
-        if file_path:
-            shutil.copy(file_path, os.path.join(lycoris_destination_folder, os.path.basename(file_path)))
-        lycoris_progress_bar.update()
         
 def delete_files_without_words(folder_path):
     # List of words that should be present in the txt files
@@ -488,6 +447,57 @@ def delete_files_without_words(folder_path):
                     os.remove(image_path)
                 print(f"Deleted {filename} and its corresponding image.")
 
+def delete_files_with_words(folder_path, words_to_check):
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.txt'):
+            txt_path = os.path.join(folder_path, filename)
+            image_path = os.path.join(folder_path, f"{os.path.splitext(filename)[0]}.jpg")
+
+            with open(txt_path, 'r') as txt_file:
+                content = txt_file.read()
+
+            if any(word in content for word in words_to_check):
+                os.remove(txt_path)
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                print(f"Deleted {filename} and its corresponding image.")
+
+def generate_random_string(length=6):
+    """Generate a random string of lowercase letters and digits."""
+    chars = string.ascii_lowercase + string.digits
+    return ''.join(random.choice(chars) for _ in range(length))
+
+def save_frames(video_path, output_folder, interval=10):
+
+    # Open the video file
+    cap = cv2.VideoCapture(video_path)
+
+    # Get the frames per second (fps) of the video
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+    # Create the output folder if it doesn't exist
+    os.makedirs(output_folder, exist_ok=True)
+
+    frame_number = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        # Calculate the time in seconds for the current frame
+        current_time = frame_number / fps
+        
+        if current_time % interval == 0:
+            # Generate a random filename for the frame
+            random_name = generate_random_string()
+            output_path = os.path.join(output_folder, f"frame_{random_name}.jpg")
+            cv2.imwrite(output_path, frame)
+            print(f"Saved frame {frame_number} at time {current_time} seconds as {output_path}")
+
+        frame_number += 1
+
+    cap.release()
+
 # Main menu to choose the features
 def main_menu():
     images_folder = None
@@ -505,9 +515,11 @@ def main_menu():
         print("9. Copy all loras and lycoris files that are in styles.csv to seperate folders")
         print("10. Try to seperate a manga page into individual panels")
         print("11. Remove all images and textfiles without 1girl or 1boy in them")
+        print("12. Remove all images and textfiles with X tags in them")
+        print("13. Save images from videos every X seconds")
         print("0. Exit")
 
-        choice = input("Enter your choice (1/2/3/4/5/6/7/8/9/10/11/0): ")
+        choice = input("Enter your choice (1/2/3/4/5/6/7/8/9/10/11/12/13/0): ")
 
         if choice == "1":
             # Rename .safetensor files
@@ -554,8 +566,24 @@ def main_menu():
         elif choice == "10":
             panel_extraction()
         elif choice == "11":
-            images_folder = input("Enter the path to the folder containing images and text files: ")
+            folder_path = input("Enter the path to the folder containing images and text files: ")
             delete_files_without_words(folder_path)
+        elif choice == "12":
+            folder_path = input("Enter the path to the folder containing images and text files: ")
+            words_input = input("Enter words (comma-separated) that should be present in the txt files: ")
+            words_to_check = [word.strip() for word in words_input.split(",")]
+
+            delete_files_with_words(folder_path, words_to_check)
+        elif choice == "13":
+            video_folder = input("Enter the path to the video folder: ")
+            interval = int(input("Enter the time interval in seconds: "))
+            output_folder = video_folder
+            
+            video_files = [f for f in os.listdir(video_folder) if f.endswith(".mp4")]
+
+            for video_file in video_files:
+                video_path = os.path.join(video_folder, video_file)
+                save_frames(video_path, output_folder, interval=interval)
         elif choice == "0":
             # Exit the program
             print("Exiting...")
