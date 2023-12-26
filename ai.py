@@ -180,7 +180,8 @@ def count_items(file_path, item_count):
         for item in items:
             item_count[item] += 1
 
-def rank_items(folder_path):
+
+def get_top_items(folder_path):
     item_count = collections.defaultdict(int)
     if os.path.isfile(folder_path):
         folder_path = os.path.dirname(folder_path)
@@ -190,9 +191,17 @@ def rank_items(folder_path):
             if filename.endswith('.txt'):
                 file_path = os.path.join(root, filename)
                 count_items(file_path, item_count)
-    
-    ranked_items = sorted(item_count.items(), key=lambda x: x[1], reverse=True)[:30]  # Display only the top 30 items
-    return ranked_items
+
+    # Sort items by count in descending order
+    sorted_items = sorted(item_count.items(), key=lambda x: x[1], reverse=True)
+
+    # Determine the highest count
+    highest_count = sorted_items[0][1] if sorted_items else 0
+
+    # Filter items to include only those with count >= 10% of the highest count
+    top_items = [item for item in sorted_items if item[1] >= 0.1 * highest_count]
+
+    return top_items
 
 # Function to convert an image to black and white
 def convert_to_bw(image_path):
@@ -498,6 +507,48 @@ def save_frames(video_path, output_folder, interval=10):
 
     cap.release()
 
+from PIL import Image
+import os
+
+def resize_images(folder_path, max_length):
+    # Get a list of all files in the folder
+    files = os.listdir(folder_path)
+    
+    # Loop through each file
+    for file_name in files:
+        file_path = os.path.join(folder_path, file_name)
+        
+        # Check if the file is an image
+        if os.path.isfile(file_path) and file_name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp')):
+            try:
+                # Open the image file
+                image = Image.open(file_path)
+                
+                # Get the original width and height
+                width, height = image.size
+                
+                # Calculate the aspect ratio
+                aspect_ratio = width / height
+                
+                # Resize the image based on the maximum length while preserving aspect ratio
+                if width > height:
+                    new_width = max_length
+                    new_height = int(max_length / aspect_ratio)
+                else:
+                    new_height = max_length
+                    new_width = int(max_length * aspect_ratio)
+                
+                # Resize the image
+                resized_image = image.resize((new_width, new_height))
+                
+                # Save the resized image, overwriting the original file
+                resized_image.save(file_path)
+                
+                print(f"Resized: {file_name}")
+            
+            except Exception as e:
+                print(f"Error processing {file_name}: {str(e)}")
+
 # Main menu to choose the features
 def main_menu():
     images_folder = None
@@ -517,9 +568,10 @@ def main_menu():
         print("11. Remove all images and textfiles without 1girl or 1boy in them")
         print("12. Remove all images and textfiles with X tags in them")
         print("13. Save images from videos every X seconds")
+        print("14. Resize images to X max length")
         print("0. Exit")
 
-        choice = input("Enter your choice (1/2/3/4/5/6/7/8/9/10/11/12/13/0): ")
+        choice = input("Enter your choice (1/2/3/4/5/6/7/8/9/10/11/12/13/14/0): ")
 
         if choice == "1":
             # Rename .safetensor files
@@ -541,9 +593,29 @@ def main_menu():
         elif choice == "4":
             # Rank items in text files
             folder_path = input("Enter the folder path: ")
-            ranked_items = rank_items(folder_path)
+            ranked_items = get_top_items(folder_path)  # Using the new get_top_items function
             for item, count in ranked_items:
-                print(f'{item.strip()}: {count}')
+                if item.startswith(' '):
+                    cleaned_item = item[1:]
+                else:
+                    cleaned_item = item
+                print(f'{cleaned_item}: {count}')  # Diagnostic print
+
+            prompt = ""
+            counter = 0
+            excluded_words = ["solo", "1girl", "looking at viewer", "smile", "cleavage", "hair ornament", "animal ears", "hairclip", "fake animal ears"] 
+
+            print("\nPrompt:")
+            for item in ranked_items:
+                cleaned_item = item[0][1:] if item[0].startswith(' ') else item[0]
+                if cleaned_item not in excluded_words:
+                    prompt += cleaned_item + ", "
+                    counter += 1
+                    if counter == 20:
+                        break
+            
+            print(prompt)
+
         elif choice == "5":
             # Convert images to black and white
             folder_path = input("Enter the path to the folder containing the images: ")
@@ -578,6 +650,15 @@ def main_menu():
             video_folder = input("Enter the path to the video folder: ")
             interval = int(input("Enter the time interval in seconds: "))
             output_folder = video_folder
+            video_files = [f for f in os.listdir(video_folder) if f.endswith(".mp4")]
+
+            for video_file in video_files:
+                video_path = os.path.join(video_folder, video_file)
+                save_frames(video_path, output_folder, interval)
+        elif choice == "14":
+            folder_path = input("Enter the path to the folder: ")
+            max_length = int(input("Enter the max size of image: "))
+            resize_images(folder_path, max_length)
             
             video_files = [f for f in os.listdir(video_folder) if f.endswith(".mp4")]
 
