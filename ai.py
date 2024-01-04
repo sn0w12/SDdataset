@@ -636,8 +636,8 @@ def process_image(input_image_path, output_folder_base, size_threshold=0.05):
     image_np = np.array(image)
 
     # Define the green color range
-    lower_green = np.array([0, 200, 0])
-    upper_green = np.array([10, 255, 10])
+    lower_green = np.array([0, 254, 1])
+    upper_green = np.array([0, 254, 1])
 
     # Create a mask to remove green areas
     mask = cv2.inRange(image_np, lower_green, upper_green)
@@ -654,14 +654,10 @@ def process_image(input_image_path, output_folder_base, size_threshold=0.05):
 
     # Save each disconnected part as a separate image if it meets the size criteria
     for idx, contour in enumerate(contours):
-        if cv2.contourArea(contour) > min_size:
-            mask = np.zeros(image_np.shape[:2], dtype="uint8")
-            cv2.drawContours(mask, [contour], -1, 255, -1)
-            result = cv2.bitwise_and(image_np, image_np, mask=mask)
-            x, y, w, h = cv2.boundingRect(contour)
-            cropped_result = result[y:y+h, x:x+w]
-            cropped_result[mask[y:y+h, x:x+w] == 0] = [255, 255, 255]  # Set outside of the mask to white
-            Image.fromarray(cropped_result).save(os.path.join(output_folder_base, f"part_{idx+1}.png"))
+        x, y, w, h = cv2.boundingRect(contour)
+        if w * h > min_size:
+            cropped_image = image_np[y:y+h, x:x+w]
+            Image.fromarray(cropped_image).save(f"{output_folder_base}/part_{idx+1}.png")
 
 def remove_green_and_separate(input_folder, size_threshold=0.05):
     # Supported image formats
