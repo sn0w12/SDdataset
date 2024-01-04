@@ -22,7 +22,7 @@ def main():
             print(pkg)
         sys.exit(1)  # Exit with a status code indicating missing packages
     else:
-        print("All required packages are installed.")
+        print("")
         sys.exit(0)  # Exit with a status code indicating success
 
 if __name__ == "__main__":
