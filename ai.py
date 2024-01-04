@@ -526,7 +526,7 @@ def sort_lora():
 def delete_files_without_words(folder_path):
     # List of words that should be present in the txt files
     words_to_check = ['1girl', '1boy']
-    for filename in os.listdir(folder_path):
+    for filename in tqdm(os.listdir(folder_path), desc="Checking files"):
         if filename.endswith('.txt'):
             txt_path = os.path.join(folder_path, filename)
             image_path = os.path.join(folder_path, f"{os.path.splitext(filename)[0]}.jpg")
@@ -678,30 +678,56 @@ def remove_green_and_separate(input_folder, size_threshold=0.05):
         # Map the process_image function to each image
         list(tqdm(executor.map(process_image, input_images, [output_folder_base]*len(input_images), [size_threshold]*len(input_images)), total=len(input_images)))
 
+def rename_txt_files(folder_path):
+    for filename in tqdm(os.listdir(folder_path), desc="Renaming files"):
+        # Check if the file is a .txt file and has the specified format
+        if filename.endswith(".txt_01.txt"):
+            # Construct the new filename
+            new_filename = filename.replace("_01.txt", "")
+            # Rename the file
+            os.rename(os.path.join(folder_path, filename), os.path.join(folder_path, new_filename))
+    print(f"Finished renaming textfiles")
+
+def random_string(length=10):
+    return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
+
+def rename_files_in_folder(folder_path):
+    for filename in os.listdir(folder_path):
+        if os.path.isfile(os.path.join(folder_path, filename)):
+            new_name = random_string() + os.path.splitext(filename)[1]
+            os.rename(os.path.join(folder_path, filename), os.path.join(folder_path, new_name))
+            print(f"Renamed '{filename}' to '{new_name}'")
+
 # Main menu to choose the features
 def main_menu():
     images_folder = None
 
     while True:
+        number = 1
         print("Main Menu:")
-        print("1. Rename .safetensor files")
-        print("2. Analyze and delete duplicate images")
-        print("3. Copy images from a source folder to a destination folder")
-        print("4. Rank tags in text files")
-        print("5. Convert images to black and white")
-        print("6. Organize files based on a tag in text files")
-        print("7. Replace transparent pixels with white in images")
-        print("8. Process dataset and replace transparent pixels in images")
-        print("9. Copy all loras and lycoris files that are in styles.csv to seperate folders")
-        print("10. Try to seperate a manga page into individual panels")
-        print("11. Remove all images and textfiles without 1girl or 1boy in them")
-        print("12. Remove all images and textfiles with X tags in them")
-        print("13. Save images from videos every X seconds")
-        print("14. Resize images to X max length")
-        print("15. Seperate greenscreened images")
+        print(str(number) + ". Rename .safetensor files"); number += 1
+        print(str(number) + ". Analyze and delete duplicate images"); number += 1
+        print(str(number) + ". Copy images from a source folder to a destination folder"); number += 1
+        print(str(number) + ". Rank tags in text files"); number += 1
+        print(str(number) + ". Convert images to black and white"); number += 1
+        print(str(number) + ". Organize files based on a tag in text files"); number += 1
+        print(str(number) + ". Replace transparent pixels with white in images"); number += 1
+        print(str(number) + ". Process dataset and replace transparent pixels in images"); number += 1
+        print(str(number) + ". Copy all loras and lycoris files that are in styles.csv to separate folders"); number += 1
+        print(str(number) + ". Try to separate a manga page into individual panels"); number += 1
+        print(str(number) + ". Remove all images and textfiles without 1girl or 1boy in them"); number += 1
+        print(str(number) + ". Remove all images and textfiles with X tags in them"); number += 1
+        print(str(number) + ". Save images from videos every X seconds"); number += 1
+        print(str(number) + ". Resize images to X max length"); number += 1
+        print(str(number) + ". Separate greenscreened images"); number += 1
+        print(str(number) + ". Remove comfyui suffix from .txt file"); number += 1
+        print(str(number) + ". Randomize file names"); number += 1
         print("0. Exit")
 
-        choice = input("Enter your choice (1/2/3/4/5/6/7/8/9/10/11/12/13/14/0): ")
+        allNumbers = ""
+        for i in range(number - 1):
+            allNumbers += (str(i + 1) + "/")
+        choice = input("Enter your choice (" + allNumbers + "0): ")
 
         match choice:
             case "1":
@@ -799,6 +825,12 @@ def main_menu():
             case "15":
                 input_folder = input("Please enter the path to your input folder: ")
                 remove_green_and_separate(input_folder)
+            case "16":
+                input_folder = input("Please enter the path to your input folder: ")
+                rename_txt_files(input_folder)
+            case "17":
+                input_folder = input("Please enter the path to your input folder: ")
+                rename_files_in_folder(input_folder)
             case "0":
                 # Exit the program
                 print("Exiting...")
