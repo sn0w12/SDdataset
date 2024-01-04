@@ -729,28 +729,25 @@ def main_menu():
             allNumbers += (str(i + 1) + "/")
         choice = input("Enter your choice (" + allNumbers + "0): ")
 
+        if choice not in ["9", "10", "0"]:
+            images_folder = input("Enter the directory path: ")
+            if not os.path.isdir(images_folder):
+                print("Invalid directory path.")
         match choice:
             case "1":
                 # Rename .safetensor files
-                directory = input("Enter the directory path where the .safetensor files are located: ")
-                if not os.path.isdir(directory):
-                    print("Invalid directory path.")
-                else:
                     prefix = input("Enter the prefix for renaming: ")
-                    rename_safetensor_files(directory, prefix)
+                    rename_safetensor_files(images_folder, prefix)
             case "2":
                 # Analyze and process a dataset of images
-                images_folder = input("Enter the path to the image folder: ")
                 process_dataset(images_folder)
             case "3":
                 # Copy images from a source folder to a destination folder
-                source_folder = input("Enter the source folder path: ")
                 destination_folder = input("Enter the destination folder path: ")
-                copy_images(source_folder, destination_folder)
+                copy_images(images_folder, destination_folder)
             case "4":
                 # Rank items in text files
-                folder_path = input("Enter the folder path: ")
-                ranked_items = get_top_items(folder_path)  # Using the new get_top_items function
+                ranked_items = get_top_items(images_folder)  # Using the new get_top_items function
                 for item, count in ranked_items:
                     if item.startswith(' '):
                         cleaned_item = item[1:]
@@ -775,62 +772,45 @@ def main_menu():
 
             case "5":
                 # Convert images to black and white
-                folder_path = input("Enter the path to the folder containing the images: ")
-                convert_folder_to_bw(folder_path)
+                convert_folder_to_bw(images_folder)
             case "6":
                 # Organize files based on a keyword in text files
-                root_folder = input("Enter the path of the folder containing images and text files: ")
                 keyword = input("Enter the keyword to search for in the text files: ")
-                find_and_copy_files(root_folder, keyword)
+                find_and_copy_files(images_folder, keyword)
             case "7":
                 # Replace transparent pixels with white in images
-                images_folder = input("Enter the path to the folder containing images: ")
                 process_images_in_folder(images_folder)
             case "8":
                 # Process dataset and replace transparent pixels in images
-                images_folder = input("Enter the path to the folder containing images: ")
                 process_dataset_and_replace_transparent(images_folder)
             case "9":
                 sort_lora()
             case "10":
                 panel_extraction()
             case "11":
-                folder_path = input("Enter the path to the folder containing images and text files: ")
-                delete_files_without_words(folder_path)
+                delete_files_without_words(images_folder)
             case"12":
-                folder_path = input("Enter the path to the folder containing images and text files: ")
                 words_input = input("Enter words (comma-separated) that should be present in the txt files: ")
                 words_to_check = [word.strip() for word in words_input.split(",")]
 
-                delete_files_with_words(folder_path, words_to_check)
+                delete_files_with_words(images_folder, words_to_check)
             case "13":
-                video_folder = input("Enter the path to the video folder: ")
                 interval = int(input("Enter the time interval in seconds: "))
-                output_folder = video_folder
-                video_files = [f for f in os.listdir(video_folder) if f.endswith(".mp4")]
+                output_folder = images_folder
+                video_files = [f for f in os.listdir(images_folder) if f.endswith(".mp4")]
 
                 for video_file in video_files:
-                    video_path = os.path.join(video_folder, video_file)
+                    video_path = os.path.join(images_folder, video_file)
                     save_frames(video_path, output_folder, interval)
             case "14":
-                folder_path = input("Enter the path to the folder: ")
                 max_length = int(input("Enter the max size of image: "))
-                resize_images(folder_path, max_length)
-                
-                video_files = [f for f in os.listdir(video_folder) if f.endswith(".mp4")]
-
-                for video_file in video_files:
-                    video_path = os.path.join(video_folder, video_file)
-                    save_frames(video_path, output_folder, interval=interval)
+                resize_images(images_folder, max_length)
             case "15":
-                input_folder = input("Please enter the path to your input folder: ")
-                remove_green_and_separate(input_folder)
+                remove_green_and_separate(images_folder)
             case "16":
-                input_folder = input("Please enter the path to your input folder: ")
-                rename_txt_files(input_folder)
+                rename_txt_files(images_folder)
             case "17":
-                input_folder = input("Please enter the path to your input folder: ")
-                rename_files_in_folder(input_folder)
+                rename_files_in_folder(images_folder)
             case "0":
                 # Exit the program
                 print("Exiting...")
