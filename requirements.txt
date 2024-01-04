@@ -7,3 +7,5 @@ matplotlib
 scikit-image
 scipy
 send2trash
+opencv-python
+fiftyone
