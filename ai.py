@@ -698,6 +698,26 @@ def rename_files_in_folder(folder_path):
             os.rename(os.path.join(folder_path, filename), os.path.join(folder_path, new_name))
             print(f"Renamed '{filename}' to '{new_name}'")
 
+def git_pull_in_subfolders(parent_directory):
+    # Change the working directory to the specified parent directory
+    os.chdir(parent_directory)
+
+    # List all the entries in the directory
+    for entry in os.listdir(parent_directory):
+        path = os.path.join(parent_directory, entry)
+        # Check if the entry is a directory
+        if os.path.isdir(path):
+            print(f"Entering {entry} and pulling...")
+            # Change into the subdirectory
+            os.chdir(path)
+            try:
+                # Run 'git pull' command
+                subprocess.run(["git", "pull"], check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to pull in {entry}: {e}")
+            # Change back to the parent directory
+            os.chdir(parent_directory)
+
 # Main menu to choose the features
 def main_menu():
     images_folder = None
@@ -722,6 +742,7 @@ def main_menu():
         print(str(number) + ". Separate greenscreened images"); number += 1
         print(str(number) + ". Remove comfyui suffix from .txt file"); number += 1
         print(str(number) + ". Randomize file names"); number += 1
+        print(str(number) + ". Git pull all subfolders"); number += 1
         print("0. Exit")
 
         allNumbers = ""
@@ -811,6 +832,8 @@ def main_menu():
                 rename_txt_files(images_folder)
             case "17":
                 rename_files_in_folder(images_folder)
+            case "18":
+                git_pull_in_subfolders(images_folder)
             case "0":
                 # Exit the program
                 print("Exiting...")
