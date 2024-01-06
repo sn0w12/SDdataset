@@ -2,6 +2,7 @@
 setlocal enabledelayedexpansion
 CALL "C:\ProgramData\anaconda3\Scripts\activate.bat"
 
+:dependency_check
 python check_dependencies.py > missing_packages.txt
 SET DEPENDENCY_CHECK=%ERRORLEVEL%
 IF !DEPENDENCY_CHECK! EQU 1 (
@@ -16,6 +17,19 @@ IF !DEPENDENCY_CHECK! EQU 1 (
 )
 
 echo Running ai.py...
+:run_ai
 python ai.py
+
+:set_exit_option
+echo.
+set /p UserExit=Do you want to exit? [Y/N]: 
+IF /I "!UserExit!"=="Y" (
+    goto end_script
+) ELSE (
+    echo Restarting ai.py...
+    goto run_ai
+)
+
+:end_script
 pause
 endlocal

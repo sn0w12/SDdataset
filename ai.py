@@ -747,15 +747,14 @@ def main_menu():
         print(str(number) + ". Remove comfyui suffix from .txt file"); number += 1
         print(str(number) + ". Randomize file names"); number += 1
         print(str(number) + ". Git pull all subfolders"); number += 1
-        print("0. Exit")
-        print("r. Restart")
+        print("0. Exit/Restart")
 
         allNumbers = ""
         for i in range(number - 1):
             allNumbers += (str(i + 1) + "/")
-        choice = input("Enter your choice (" + allNumbers + "0/r): ").lower()
+        choice = input("Enter your choice (" + allNumbers + "0): ").lower()
 
-        if choice not in ["9", "10", "0", "r"]:
+        if choice not in ["9", "10", "0"]:
             directory = input("Enter the directory path: ")
             if not os.path.isdir(directory):
                 print("Invalid directory path.")
@@ -842,9 +841,6 @@ def main_menu():
             case "0":
                 print("Exiting...")
                 sys.exit()
-            case "r":
-                print("Restarting the script...")
-                os.execl(sys.executable, sys.executable, *sys.argv)
             case _:
                 print("Invalid choice. Please try again.")
 
