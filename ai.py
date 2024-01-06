@@ -635,29 +635,33 @@ def process_image(input_image_path, output_folder_base, size_threshold=0.05):
     image = Image.open(input_image_path)
     image_np = np.array(image)
 
-    # Define the green color range
-    lower_green = np.array([0, 254, 1])
-    upper_green = np.array([0, 254, 1])
+    # Define a broader green color range
+    lower_green = np.array([0, 200, 0])  # Adjust these values
+    upper_green = np.array([10, 255, 10])  # Adjust these values
 
-    # Create a mask to remove green areas
+    # Create a mask to identify non-green areas
     mask = cv2.inRange(image_np, lower_green, upper_green)
-    image_np[mask != 0] = [255, 255, 255]  # Replace green with white
+    non_green_areas = cv2.bitwise_not(mask)  # Invert mask to get non-green areas
 
-    # Find disconnected components
-    gray_image = cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY)
-    _, binary_image = cv2.threshold(gray_image, 240, 255, cv2.THRESH_BINARY_INV)
-    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Find disconnected components (non-green areas)
+    num_labels, labels = cv2.connectedComponents(non_green_areas)
 
     # Calculate the size threshold based on the original image size
     original_size = image_np.shape[0] * image_np.shape[1]
     min_size = original_size * size_threshold
 
-    # Save each disconnected part as a separate image if it meets the size criteria
-    for idx, contour in enumerate(contours):
-        x, y, w, h = cv2.boundingRect(contour)
+    saved_images = 0
+
+    # Iterate through the found components
+    for label in range(1, num_labels):  # Start from 1 to ignore the background
+        component_mask = np.where(labels == label, 255, 0).astype('uint8')
+        x, y, w, h = cv2.boundingRect(component_mask)
         if w * h > min_size:
             cropped_image = image_np[y:y+h, x:x+w]
-            Image.fromarray(cropped_image).save(f"{output_folder_base}/part_{idx+1}.png")
+            cropped_mask = component_mask[y:y+h, x:x+w]
+            cropped_image[cropped_mask == 0] = [255, 255, 255]
+            unique_filename = f"{random_string()}.png"
+            Image.fromarray(cropped_image).save(os.path.join(output_folder_base, unique_filename))
 
 def remove_green_and_separate(input_folder, size_threshold=0.05):
     # Supported image formats
@@ -674,7 +678,7 @@ def remove_green_and_separate(input_folder, size_threshold=0.05):
         os.makedirs(output_folder_base)
 
     # Process images in parallel
-    with ThreadPoolExecutor(max_workers=20) as executor:
+    with ThreadPoolExecutor() as executor:
         # Map the process_image function to each image
         list(tqdm(executor.map(process_image, input_images, [output_folder_base]*len(input_images), [size_threshold]*len(input_images)), total=len(input_images)))
 
@@ -744,13 +748,14 @@ def main_menu():
         print(str(number) + ". Randomize file names"); number += 1
         print(str(number) + ". Git pull all subfolders"); number += 1
         print("0. Exit")
+        print("r. Restart")
 
         allNumbers = ""
         for i in range(number - 1):
             allNumbers += (str(i + 1) + "/")
-        choice = input("Enter your choice (" + allNumbers + "0): ")
+        choice = input("Enter your choice (" + allNumbers + "0/r): ").lower()
 
-        if choice not in ["9", "10", "0"]:
+        if choice not in ["9", "10", "0", "r"]:
             directory = input("Enter the directory path: ")
             if not os.path.isdir(directory):
                 print("Invalid directory path.")
@@ -835,9 +840,11 @@ def main_menu():
             case "18":
                 git_pull_in_subfolders(directory)
             case "0":
-                # Exit the program
                 print("Exiting...")
                 sys.exit()
+            case "r":
+                print("Restarting the script...")
+                os.execl(sys.executable, sys.executable, *sys.argv)
             case _:
                 print("Invalid choice. Please try again.")
 
