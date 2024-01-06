@@ -720,7 +720,7 @@ def git_pull_in_subfolders(parent_directory):
 
 # Main menu to choose the features
 def main_menu():
-    images_folder = None
+    directory = None
 
     while True:
         number = 1
@@ -751,24 +751,24 @@ def main_menu():
         choice = input("Enter your choice (" + allNumbers + "0): ")
 
         if choice not in ["9", "10", "0"]:
-            images_folder = input("Enter the directory path: ")
-            if not os.path.isdir(images_folder):
+            directory = input("Enter the directory path: ")
+            if not os.path.isdir(directory):
                 print("Invalid directory path.")
         match choice:
             case "1":
                 # Rename .safetensor files
                     prefix = input("Enter the prefix for renaming: ")
-                    rename_safetensor_files(images_folder, prefix)
+                    rename_safetensor_files(directory, prefix)
             case "2":
                 # Analyze and process a dataset of images
-                process_dataset(images_folder)
+                process_dataset(directory)
             case "3":
                 # Copy images from a source folder to a destination folder
                 destination_folder = input("Enter the destination folder path: ")
-                copy_images(images_folder, destination_folder)
+                copy_images(directory, destination_folder)
             case "4":
                 # Rank items in text files
-                ranked_items = get_top_items(images_folder)  # Using the new get_top_items function
+                ranked_items = get_top_items(directory)  # Using the new get_top_items function
                 for item, count in ranked_items:
                     if item.startswith(' '):
                         cleaned_item = item[1:]
@@ -793,47 +793,47 @@ def main_menu():
 
             case "5":
                 # Convert images to black and white
-                convert_folder_to_bw(images_folder)
+                convert_folder_to_bw(directory)
             case "6":
                 # Organize files based on a keyword in text files
                 keyword = input("Enter the keyword to search for in the text files: ")
-                find_and_copy_files(images_folder, keyword)
+                find_and_copy_files(directory, keyword)
             case "7":
                 # Replace transparent pixels with white in images
-                process_images_in_folder(images_folder)
+                process_images_in_folder(directory)
             case "8":
                 # Process dataset and replace transparent pixels in images
-                process_dataset_and_replace_transparent(images_folder)
+                process_dataset_and_replace_transparent(directory)
             case "9":
                 sort_lora()
             case "10":
                 panel_extraction()
             case "11":
-                delete_files_without_words(images_folder)
+                delete_files_without_words(directory)
             case"12":
                 words_input = input("Enter words (comma-separated) that should be present in the txt files: ")
                 words_to_check = [word.strip() for word in words_input.split(",")]
 
-                delete_files_with_words(images_folder, words_to_check)
+                delete_files_with_words(directory, words_to_check)
             case "13":
                 interval = int(input("Enter the time interval in seconds: "))
-                output_folder = images_folder
-                video_files = [f for f in os.listdir(images_folder) if f.endswith(".mp4")]
+                output_folder = directory
+                video_files = [f for f in os.listdir(directory) if f.endswith(".mp4")]
 
                 for video_file in video_files:
-                    video_path = os.path.join(images_folder, video_file)
+                    video_path = os.path.join(directory, video_file)
                     save_frames(video_path, output_folder, interval)
             case "14":
                 max_length = int(input("Enter the max size of image: "))
-                resize_images(images_folder, max_length)
+                resize_images(directory, max_length)
             case "15":
-                remove_green_and_separate(images_folder)
+                remove_green_and_separate(directory)
             case "16":
-                rename_txt_files(images_folder)
+                rename_txt_files(directory)
             case "17":
-                rename_files_in_folder(images_folder)
+                rename_files_in_folder(directory)
             case "18":
-                git_pull_in_subfolders(images_folder)
+                git_pull_in_subfolders(directory)
             case "0":
                 # Exit the program
                 print("Exiting...")
