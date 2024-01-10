@@ -663,7 +663,7 @@ def process_image(input_image_path, output_folder_base, size_threshold=0.05):
             unique_filename = f"{random_string()}.png"
             Image.fromarray(cropped_image).save(os.path.join(output_folder_base, unique_filename))
 
-def remove_green_and_separate(input_folder, size_threshold=0.05):
+def remove_green_and_separate(input_folder, size_threshold=0.35):
     # Supported image formats
     formats = ['*.jpg', '*.jpeg', '*.png', '*.bmp']
 
@@ -722,6 +722,19 @@ def git_pull_in_subfolders(parent_directory):
             # Change back to the parent directory
             os.chdir(parent_directory)
 
+def copy_images_to_new_folder(source_folder, new_folder_name="All_Images", extensions=['.jpg', '.jpeg', '.png', '.gif', '.bmp']):
+    destination_folder = os.path.join(source_folder, new_folder_name)
+
+    if not os.path.exists(destination_folder):
+        os.makedirs(destination_folder)
+
+    for root, dirs, files in os.walk(source_folder):
+        for file in files:
+            if file.lower().endswith(tuple(extensions)):
+                # Avoid copying files from the destination folder itself
+                if root != destination_folder:
+                    shutil.copy(os.path.join(root, file), destination_folder)
+
 # Main menu to choose the features
 def main_menu():
     directory = None
@@ -747,6 +760,7 @@ def main_menu():
         print(str(number) + ". Remove comfyui suffix from .txt file"); number += 1
         print(str(number) + ". Randomize file names"); number += 1
         print(str(number) + ". Git pull all subfolders"); number += 1
+        print(str(number) + ". Copy all images from subfolders to one folder"); number += 1
         print("0. Exit/Restart")
 
         allNumbers = ""
@@ -838,6 +852,8 @@ def main_menu():
                 rename_files_in_folder(directory)
             case "18":
                 git_pull_in_subfolders(directory)
+            case "19":
+                copy_images_to_new_folder(directory)
             case "0":
                 print("Exiting...")
                 sys.exit()
