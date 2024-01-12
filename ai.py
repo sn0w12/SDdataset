@@ -28,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor
 from queue import Queue, Empty
 from skimage import img_as_ubyte
 import glob
+import yaml
 
 # Function to rename .safetensor files
 def rename_safetensor_files(directory, prefix):
@@ -735,6 +736,46 @@ def copy_images_to_new_folder(source_folder, new_folder_name="All_Images", exten
                 if root != destination_folder:
                     shutil.copy(os.path.join(root, file), destination_folder)
 
+def extract_json_files_from_yaml(yaml_file_name, folder_path):
+    yaml_path = os.path.join(folder_path, yaml_file_name)
+    with open(yaml_path, 'r') as file:
+        yaml_content = yaml.safe_load(file)
+
+    def extract_json(node, json_files):
+        if isinstance(node, dict):
+            for value in node.values():
+                extract_json(value, json_files)
+        elif isinstance(node, list):
+            for item in node:
+                extract_json(item, json_files)
+        elif isinstance(node, str) and node.endswith('.json'):
+            json_files.add(node)
+
+    json_files = set()
+    extract_json(yaml_content, json_files)
+    return json_files
+
+def delete_unused_json_files(folder_path, yaml_file_name='integrated_nodes.yaml'):
+    json_files_in_yaml = extract_json_files_from_yaml(yaml_file_name, folder_path)
+    all_json_files = {f for f in os.listdir(folder_path) if f.endswith('.json')}
+    
+    unused_json_files = all_json_files - json_files_in_yaml
+
+    if unused_json_files:
+        print("Unused .json files found:")
+        for file in unused_json_files:
+            print(file)
+        
+        user_input = input("Do you want to delete all unused .json files? [Y/n]: ").lower()
+        if user_input in ["y"]:
+            for file in unused_json_files:
+                os.remove(os.path.join(folder_path, file))
+            print("Unused .json files have been deleted.")
+        else:
+            print("No files have been deleted.")
+    else:
+        print("No unused .json files to delete.")
+
 # Main menu to choose the features
 def main_menu():
     directory = None
@@ -761,6 +802,7 @@ def main_menu():
         print(str(number) + ". Randomize file names"); number += 1
         print(str(number) + ". Git pull all subfolders"); number += 1
         print(str(number) + ". Copy all images from subfolders to one folder"); number += 1
+        print(str(number) + ". Clean integrated-nodes-comfyui"); number += 1
         print("0. Exit/Restart")
 
         allNumbers = ""
@@ -854,6 +896,8 @@ def main_menu():
                 git_pull_in_subfolders(directory)
             case "19":
                 copy_images_to_new_folder(directory)
+            case "20":
+                delete_unused_json_files(directory)
             case "0":
                 print("Exiting...")
                 sys.exit()
