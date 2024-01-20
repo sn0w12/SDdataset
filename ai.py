@@ -29,6 +29,7 @@ from queue import Queue, Empty
 from skimage import img_as_ubyte
 import glob
 import yaml
+import json
 
 # Function to rename .safetensor files
 def rename_safetensor_files(directory, prefix):
@@ -776,9 +777,43 @@ def delete_unused_json_files(folder_path, yaml_file_name='integrated_nodes.yaml'
     else:
         print("No unused .json files to delete.")
 
+def save_comfyui_directory(path):
+    with open('config.json', 'w') as config_file:
+        json.dump({'comfyui_directory': path}, config_file)
+
+def load_comfyui_directory():
+    if os.path.exists('config.json'):
+        with open('config.json', 'r') as config_file:
+            config = json.load(config_file)
+            return config.get('comfyui_directory', '')
+    return ''
+
+def print_options(options, zerooption="null"):
+    number = 1
+    print("Options:")
+    for option in options:
+        print(str(number) + ". " + option)
+        number += 1
+
+    if zerooption != "null":
+        print("0. " + zerooption)
+
+    allNumbers = ""
+    for i in range(number - 1):
+        allNumbers += (str(i + 1) + "/")
+
+    if zerooption != "null":
+        allNumbers += "0"
+    else:
+        allNumbers = allNumbers[:-1]
+
+    choice = input("Enter your choice (" + allNumbers + "): ").lower()
+    return choice
+
 # Main menu to choose the features
 def main_menu():
     directory = None
+    comfyUIdirectory = load_comfyui_directory()
 
     while True:
         number = 1
@@ -803,22 +838,22 @@ def main_menu():
         print(str(number) + ". Git pull all subfolders"); number += 1
         print(str(number) + ". Copy all images from subfolders to one folder"); number += 1
         print(str(number) + ". Clean integrated-nodes-comfyui"); number += 1
-        print("0. Exit/Restart")
+        print("0. Settings/Exit")
 
         allNumbers = ""
         for i in range(number - 1):
             allNumbers += (str(i + 1) + "/")
         choice = input("Enter your choice (" + allNumbers + "0): ").lower()
 
-        if choice not in ["9", "10", "0"]:
+        if choice not in ["9", "10", "18", "20", "0"]:
             directory = input("Enter the directory path: ")
             if not os.path.isdir(directory):
                 print("Invalid directory path.")
         match choice:
             case "1":
                 # Rename .safetensor files
-                    prefix = input("Enter the prefix for renaming: ")
-                    rename_safetensor_files(directory, prefix)
+                prefix = input("Enter the prefix for renaming: ")
+                rename_safetensor_files(directory, prefix)
             case "2":
                 # Analyze and process a dataset of images
                 process_dataset(directory)
@@ -893,14 +928,61 @@ def main_menu():
             case "17":
                 rename_files_in_folder(directory)
             case "18":
-                git_pull_in_subfolders(directory)
+                caseChoice = print_options(["Choose Directory", "Use ComfyUI Custom Nodes Directory"])
+                match caseChoice:
+                    case "1":
+                        git_pull_in_subfolders(directory)
+                    case "2":
+                        custom_nodes_path = os.path.join(comfyUIdirectory, 'custom_nodes')
+
+                        # Check if the main ComfyUI directory exists
+                        if not os.path.exists(comfyUIdirectory):
+                            print(f"The directory {comfyUIdirectory} does not exist.")
+                            return False
+                        git_pull_in_subfolders(custom_nodes_path)
             case "19":
                 copy_images_to_new_folder(directory)
             case "20":
-                delete_unused_json_files(directory)
+                caseChoice = print_options(["Choose Directory", "Use ComfyUI Custom Nodes Directory"])
+                match caseChoice:
+                    case "1":
+                        delete_unused_json_files(directory)
+                    case "2":
+                        custom_nodes_path = os.path.join(comfyUIdirectory, 'custom_nodes_last', 'integrated-nodes-comfyui')
+
+                        # Check if the main ComfyUI directory exists
+                        if not os.path.exists(comfyUIdirectory):
+                            print(f"The directory {comfyUIdirectory} does not exist.")
+                            return False
+
+                        # Check if 'custom_nodes_last' folder exists
+                        if not os.path.exists(custom_nodes_path):
+                            print(f"The folder {custom_nodes_path} does not exist. Trying 'custom_nodes'...")
+
+                            # Try with 'custom_nodes'
+                            custom_nodes_path = os.path.join(comfyUIdirectory, 'custom_nodes', 'integrated-nodes-comfyui')
+
+                            # Check if 'custom_nodes' folder exists
+                            if not os.path.exists(custom_nodes_path):
+                                print(f"The folder {custom_nodes_path} also does not exist.")
+                                return False
+
+                        # If the folder exists, perform the delete_unused_json_files operation
+                        delete_unused_json_files(custom_nodes_path)
             case "0":
-                print("Exiting...")
-                sys.exit()
+                print("Options:")
+                print("1: Change ComfyUI Directory")
+                print("0: Exit/Restart")
+
+                settingsChoice = input("Enter your choice (1/0): ").lower()
+                match settingsChoice:
+                    case "0":
+                        print("Exiting...")
+                        sys.exit()
+                    case "1":
+                        path = input("Enter Comfyui directory path to save: ")
+                        save_comfyui_directory(path)
+                        print("Directory saved successfully.")
             case _:
                 print("Invalid choice. Please try again.")
 
