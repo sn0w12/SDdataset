@@ -30,6 +30,8 @@ from skimage import img_as_ubyte
 import glob
 import yaml
 import json
+from collections import Counter
+import math
 
 # Function to rename .safetensor files
 def rename_safetensor_files(directory, prefix):
@@ -810,6 +812,28 @@ def print_options(options, zerooption="null"):
     choice = input("Enter your choice (" + allNumbers + "): ").lower()
     return choice
 
+def collect_inputs(num_prompts):
+    prompts = []
+    for i in range(num_prompts):
+        prompt = input(f"Enter prompt {i+1}: ")
+        prompts.append(prompt)
+    return prompts
+
+def find_common_words(prompts):
+    word_count = Counter()
+    for prompt in prompts:
+        # Create a set for each prompt to avoid counting duplicate words in the same prompt
+        unique_words = set(prompt.split(", "))
+        word_count.update(unique_words)
+    
+    # Calculate the minimum number of prompts a word must appear in
+    min_appearances = math.ceil(len(prompts) / 2)
+
+    # Select words that meet the threshold
+    words_in_half = {word for word, count in word_count.items() if count >= min_appearances}
+    sorted_words = sorted(words_in_half)
+    return sorted_words
+
 # Main menu to choose the features
 def main_menu():
     directory = None
@@ -838,6 +862,7 @@ def main_menu():
         print(str(number) + ". Git pull all subfolders"); number += 1
         print(str(number) + ". Copy all images from subfolders to one folder"); number += 1
         print(str(number) + ". Clean integrated-nodes-comfyui"); number += 1
+        print(str(number) + ". Find common words in prompts"); number += 1
         print("0. Settings/Exit")
 
         allNumbers = ""
@@ -845,7 +870,7 @@ def main_menu():
             allNumbers += (str(i + 1) + "/")
         choice = input("Enter your choice (" + allNumbers + "0): ").lower()
 
-        if choice not in ["9", "10", "18", "20", "0"]:
+        if choice not in ["9", "10", "18", "20", "21", "0"]:
             directory = input("Enter the directory path: ")
             if not os.path.isdir(directory):
                 print("Invalid directory path.")
@@ -969,6 +994,11 @@ def main_menu():
 
                         # If the folder exists, perform the delete_unused_json_files operation
                         delete_unused_json_files(custom_nodes_path)
+            case "21":
+                num_prompts = int(input("How many prompts are you going to provide? "))
+                prompts = collect_inputs(num_prompts)
+                common_words = find_common_words(prompts)
+                print("Common words across all prompts:", ", ".join(common_words))
             case "0":
                 print("Options:")
                 print("1: Change ComfyUI Directory")
