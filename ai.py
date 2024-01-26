@@ -956,6 +956,7 @@ def main_menu():
                 caseChoice = print_options(["Choose Directory", "Use ComfyUI Custom Nodes Directory"])
                 match caseChoice:
                     case "1":
+                        directory = input("Enter the directory path: ")
                         git_pull_in_subfolders(directory)
                     case "2":
                         custom_nodes_path = os.path.join(comfyUIdirectory, 'custom_nodes')
@@ -971,6 +972,7 @@ def main_menu():
                 caseChoice = print_options(["Choose Directory", "Use ComfyUI Custom Nodes Directory"])
                 match caseChoice:
                     case "1":
+                        directory = input("Enter the directory path: ")
                         delete_unused_json_files(directory)
                     case "2":
                         custom_nodes_path = os.path.join(comfyUIdirectory, 'custom_nodes_last', 'integrated-nodes-comfyui')
