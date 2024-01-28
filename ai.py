@@ -834,9 +834,17 @@ def find_common_words(prompts):
     sorted_words = sorted(words_in_half)
     return sorted_words
 
+def process_multiple_datasets(directories):
+    for directory in directories:
+        if os.path.isdir(directory):
+            process_dataset(directory)
+        else:
+            print(f"Invalid directory path: {directory}")
+
 # Main menu to choose the features
 def main_menu():
     directory = None
+    directories = []
     comfyUIdirectory = load_comfyui_directory()
 
     while True:
@@ -870,7 +878,7 @@ def main_menu():
             allNumbers += (str(i + 1) + "/")
         choice = input("Enter your choice (" + allNumbers + "0): ").lower()
 
-        if choice not in ["9", "10", "18", "20", "21", "0"]:
+        if choice not in ["2", "9", "10", "18", "20", "21", "0"]:
             directory = input("Enter the directory path: ")
             if not os.path.isdir(directory):
                 print("Invalid directory path.")
@@ -880,8 +888,12 @@ def main_menu():
                 prefix = input("Enter the prefix for renaming: ")
                 rename_safetensor_files(directory, prefix)
             case "2":
-                # Analyze and process a dataset of images
-                process_dataset(directory)
+                while True:
+                    directory = input("Enter the directory path (or 'done' to finish): ")
+                    if directory.lower() == 'done':
+                        break
+                    directories.append(directory)
+                process_multiple_datasets(directories)
             case "3":
                 # Copy images from a source folder to a destination folder
                 destination_folder = input("Enter the destination folder path: ")
