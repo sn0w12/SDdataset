@@ -890,10 +890,11 @@ def main_menu():
             case "2":
                 while True:
                     directory = input("Enter the directory path (or 'done' to finish): ")
-                    if directory.lower() == 'done':
+                    if directory.lower() == 'done' or directory.lower() == '':
                         break
                     directories.append(directory)
                 process_multiple_datasets(directories)
+                directories = []
             case "3":
                 # Copy images from a source folder to a destination folder
                 destination_folder = input("Enter the destination folder path: ")
