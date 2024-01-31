@@ -53,7 +53,6 @@ def process_dataset(images_folder, similarity_threshold=0.985):
             os.system('clear')
 
     root_dir = os.getcwd()
-
     os.chdir(root_dir)
     model_name = "clip-vit-base32-torch"
     supported_types = (".png", ".jpg", ".jpeg")
@@ -63,7 +62,7 @@ def process_dataset(images_folder, similarity_threshold=0.985):
     if videos:
         answer = input("Videos found in folder, delete them? (Y/n)\n")
         if answer.lower() == "y":
-            for video in videos:
+            for video in tqdm(videos, desc="Deleting videos", smoothing=0.1):
                 send2trash(os.path.join(images_folder, video))
             print("✅ Videos deleted.")
         else:
@@ -79,76 +78,72 @@ def process_dataset(images_folder, similarity_threshold=0.985):
 
     if img_count == 0:
         print(f"💥 Error: No images found in {images_folder}")
-    else:
-        print("\n💿 Analyzing dataset...\n")
-        dataset = fo.Dataset.from_dir(images_folder, dataset_type=fo.types.ImageDirectory)
-        model = foz.load_zoo_model(model_name)
-        embeddings = dataset.compute_embeddings(model, batch_size=batch_size)
+        return
 
-        batch_embeddings = np.array_split(embeddings, batch_size)
-        similarity_matrices = []
-        max_size_x = max(array.shape[0] for array in batch_embeddings)
-        max_size_y = max(array.shape[1] for array in batch_embeddings)
+    print("\n💿 Analyzing dataset...\n")
+    dataset = fo.Dataset.from_dir(images_folder, dataset_type=fo.types.ImageDirectory)
+    model = foz.load_zoo_model(model_name)
+    embeddings = dataset.compute_embeddings(model, batch_size=batch_size)
 
-        for i, batch_embedding in enumerate(batch_embeddings):
-            similarity = cosine_similarity(batch_embedding)
-            # Pad 0 for np.concatenate
-            padded_array = np.zeros((max_size_x, max_size_y))
-            padded_array[0:similarity.shape[0], 0:similarity.shape[1]] = similarity
-            similarity_matrices.append(padded_array)
+    batch_embeddings = np.array_split(embeddings, batch_size)
+    similarity_matrices = []
+    max_size_x = max(array.shape[0] for array in batch_embeddings)
+    max_size_y = max(array.shape[1] for array in batch_embeddings)
 
-        similarity_matrix = np.concatenate(similarity_matrices, axis=0)
-        similarity_matrix = similarity_matrix[0:embeddings.shape[0], 0:embeddings.shape[0]]
+    for batch_embedding in tqdm(batch_embeddings, desc="Processing batches", smoothing=0.1):
+        similarity = cosine_similarity(batch_embedding)
+        padded_array = np.zeros((max_size_x, max_size_y))
+        padded_array[0:similarity.shape[0], 0:similarity.shape[1]] = similarity
+        similarity_matrices.append(padded_array)
 
-        similarity_matrix = cosine_similarity(embeddings)
-        similarity_matrix -= np.identity(len(similarity_matrix))
+    similarity_matrix = np.concatenate(similarity_matrices, axis=0)
+    similarity_matrix = similarity_matrix[0:embeddings.shape[0], 0:embeddings.shape[0]]
+    similarity_matrix = cosine_similarity(embeddings)
+    similarity_matrix -= np.identity(len(similarity_matrix))
 
-        dataset.match(F("max_similarity") > similarity_threshold)
-        dataset.tags = ["delete", "has_duplicates"]
+    dataset.match(F("max_similarity") > similarity_threshold)
+    dataset.tags = ["delete", "has_duplicates"]
 
-        id_map = [s.id for s in dataset.select_fields(["id"])]
-        samples_to_remove = set()
-        samples_to_keep = set()
+    id_map = [s.id for s in dataset.select_fields(["id"])]
+    samples_to_remove = set()
+    samples_to_keep = set()
 
-        for idx, sample in enumerate(dataset):
-            if sample.id not in samples_to_remove:
-                # Keep the first instance of two duplicates
-                samples_to_keep.add(sample.id)
+    for idx, sample in tqdm(enumerate(dataset), total=len(dataset), desc="Tagging samples", smoothing=0.1):
+        if sample.id not in samples_to_remove:
+            samples_to_keep.add(sample.id)
+            dup_idxs = np.where(similarity_matrix[idx] > similarity_threshold)[0]
+            for dup in dup_idxs:
+                samples_to_remove.add(id_map[dup])
 
-                dup_idxs = np.where(similarity_matrix[idx] > similarity_threshold)[0]
-                for dup in dup_idxs:
-                    # We kept the first instance so remove all other duplicates
-                    samples_to_remove.add(id_map[dup])
-
-                if len(dup_idxs) > 0:
-                    sample.tags.append("has_duplicates")
-                    sample.save()
-            else:
-                sample.tags.append("delete")
+            if len(dup_idxs) > 0:
+                sample.tags.append("has_duplicates")
                 sample.save()
+        else:
+            sample.tags.append("delete")
+            sample.save()
 
-        clear_output()
+    clear_output()
 
-        sidebar_groups = fo.DatasetAppConfig.default_sidebar_groups(dataset)
-        for group in sidebar_groups[1:]:
-            group.expanded = False
-        dataset.app_config.sidebar_groups = sidebar_groups
-        dataset.save()
-        clear_output()
-        print("💾 Saving...")
+    sidebar_groups = fo.DatasetAppConfig.default_sidebar_groups(dataset)
+    for group in sidebar_groups[1:]:
+        group.expanded = False
+    dataset.app_config.sidebar_groups = sidebar_groups
+    dataset.save()
+    clear_output()
+    print("💾 Saving...")
 
-        kys = [s for s in dataset if "delete" in s.tags]
-        dataset.delete_samples(kys)
-        project_subfolder = "output"  # Choose a project subfolder name to export the dataset
-        previous_folder = images_folder[:images_folder.rfind("\\")]
-        dataset.export(export_dir=os.path.join(images_folder, project_subfolder), dataset_type=fo.types.ImageDirectory)
+    kys = [s for s in dataset if "delete" in s.tags]
+    dataset.delete_samples(kys)
+    project_subfolder = "output"
+    previous_folder = images_folder[:images_folder.rfind("\\")]
+    dataset.export(export_dir=os.path.join(images_folder, project_subfolder), dataset_type=fo.types.ImageDirectory)
 
-        temp_suffix = "_temp"
-        shutil.move(images_folder, images_folder + temp_suffix)
-        shutil.move(images_folder + temp_suffix + "\\" + project_subfolder, images_folder)
-        shutil.rmtree(images_folder + temp_suffix)
+    temp_suffix = "_temp"
+    shutil.move(images_folder, images_folder + temp_suffix)
+    shutil.move(images_folder + temp_suffix + "\\" + project_subfolder, images_folder)
+    shutil.rmtree(images_folder + temp_suffix)
 
-        print(f"\n✅ Removed {len(kys)} images from the dataset. You now have {len(os.listdir(images_folder))} images.")
+    print(f"\n✅ Removed {len(kys)} images from the dataset. You now have {len(os.listdir(images_folder))} images.")
 
 # Function to copy image files from a source folder to a destination folder
 def copy_images(source_folder, destination_folder):
@@ -634,18 +629,18 @@ def resize_images(folder_path, max_length):
             except Exception as e:
                 print(f"Error processing {file_name}: {str(e)}")
 
-def process_image(input_image_path, output_folder_base, size_threshold=0.05):
+def process_image(input_image_path, output_folder_base, size_threshold=0.05, save_if_same_size=True):
     # Load the image
     image = Image.open(input_image_path)
     image_np = np.array(image)
 
     # Define a broader green color range
-    lower_green = np.array([0, 200, 0])  # Adjust these values
-    upper_green = np.array([10, 255, 10])  # Adjust these values
+    lower_green = np.array([0, 200, 0])
+    upper_green = np.array([10, 255, 10])
 
     # Create a mask to identify non-green areas
     mask = cv2.inRange(image_np, lower_green, upper_green)
-    non_green_areas = cv2.bitwise_not(mask)  # Invert mask to get non-green areas
+    non_green_areas = cv2.bitwise_not(mask)
 
     # Find disconnected components (non-green areas)
     num_labels, labels = cv2.connectedComponents(non_green_areas)
@@ -657,17 +652,23 @@ def process_image(input_image_path, output_folder_base, size_threshold=0.05):
     saved_images = 0
 
     # Iterate through the found components
-    for label in range(1, num_labels):  # Start from 1 to ignore the background
+    for label in range(1, num_labels):
         component_mask = np.where(labels == label, 255, 0).astype('uint8')
         x, y, w, h = cv2.boundingRect(component_mask)
         if w * h > min_size:
             cropped_image = image_np[y:y+h, x:x+w]
             cropped_mask = component_mask[y:y+h, x:x+w]
             cropped_image[cropped_mask == 0] = [255, 255, 255]
-            unique_filename = f"{random_string()}.png"
-            Image.fromarray(cropped_image).save(os.path.join(output_folder_base, unique_filename))
 
-def remove_green_and_separate(input_folder, size_threshold=0.35):
+            # Save the image based on the save_if_same_size setting
+            if save_if_same_size or (cropped_image.shape[0] * cropped_image.shape[1] != original_size):
+                unique_filename = f"{random_string(30)}.png"
+                Image.fromarray(cropped_image).save(os.path.join(output_folder_base, unique_filename))
+                saved_images += 1
+
+    return saved_images
+
+def remove_green_and_separate(input_folder, size_threshold=0.35, save_if_same_size=True):
     # Supported image formats
     formats = ['*.jpg', '*.jpeg', '*.png', '*.bmp']
 
@@ -684,7 +685,7 @@ def remove_green_and_separate(input_folder, size_threshold=0.35):
     # Process images in parallel
     with ThreadPoolExecutor() as executor:
         # Map the process_image function to each image
-        list(tqdm(executor.map(process_image, input_images, [output_folder_base]*len(input_images), [size_threshold]*len(input_images)), total=len(input_images)))
+        list(tqdm(executor.map(process_image, input_images, [output_folder_base]*len(input_images), [size_threshold]*len(input_images), [save_if_same_size]*len(input_images)), total=len(input_images)))
 
 def rename_txt_files(folder_path):
     for filename in tqdm(os.listdir(folder_path), desc="Renaming files"):
@@ -960,7 +961,14 @@ def main_menu():
                 max_length = int(input("Enter the max size of image: "))
                 resize_images(directory, max_length)
             case "15":
-                remove_green_and_separate(directory)
+                # Ask the user for their preference
+                user_input = input("Do you want to save images that are the same size as the original? (yes/no): ").strip().lower()
+
+                # Determine the boolean value for save_if_same_size based on user input
+                save_if_same_size = True if user_input == 'yes' or user_input == 'y' else False
+
+                # Call the function with the user's choice
+                remove_green_and_separate(directory, size_threshold=0.35, save_if_same_size=save_if_same_size)
             case "16":
                 rename_txt_files(directory)
             case "17":
