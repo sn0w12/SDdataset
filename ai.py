@@ -32,6 +32,7 @@ import yaml
 import json
 from collections import Counter
 import math
+from pathlib import Path
 
 # Function to rename .safetensor files
 def rename_safetensor_files(directory, prefix):
@@ -842,6 +843,31 @@ def process_multiple_datasets(directories):
         else:
             print(f"Invalid directory path: {directory}")
 
+def copy_images_to_combined_folder(base_dir):
+    # Define the path for the combined folder
+    combined_folder_path = Path(base_dir) / "combined_images"
+    # Create the combined folder if it doesn't exist
+    combined_folder_path.mkdir(exist_ok=True)
+    
+    # Define the allowed image extensions
+    image_extensions = (".jpg", ".jpeg", ".png", ".gif")
+    
+    # Initialize a counter for naming duplicates uniquely
+    file_counter = 1
+    
+    # Walk through the directory structure
+    for root, dirs, files in os.walk(base_dir):
+        for file in files:
+            if file.endswith(image_extensions):
+                # Construct the full file path
+                file_path = Path(root) / file
+                # Construct the new file path in the combined folder
+                new_file_path = combined_folder_path / f"{file_counter}_{file}"
+                # Copy the file to the combined folder
+                shutil.copy(file_path, new_file_path)
+                # Increment the counter after each copy
+                file_counter += 1
+
 # Main menu to choose the features
 def main_menu():
     directory = None
@@ -872,6 +898,7 @@ def main_menu():
         print(str(number) + ". Copy all images from subfolders to one folder"); number += 1
         print(str(number) + ". Clean integrated-nodes-comfyui"); number += 1
         print(str(number) + ". Find common words in prompts"); number += 1
+        print(str(number) + ". Add all images in a directory to a single folder"); number += 1
         print("0. Settings/Exit")
 
         allNumbers = ""
@@ -1022,6 +1049,8 @@ def main_menu():
                 prompts = collect_inputs(num_prompts)
                 common_words = find_common_words(prompts)
                 print("Common words across all prompts:", ", ".join(common_words))
+            case "22":
+                copy_images_to_combined_folder(directory)
             case "0":
                 print("Options:")
                 print("1: Change ComfyUI Directory")
