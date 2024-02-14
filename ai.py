@@ -868,6 +868,39 @@ def copy_images_to_combined_folder(base_dir):
                 # Increment the counter after each copy
                 file_counter += 1
 
+def convert_images_to_rgba(source_dir, target_dir=None):
+    """
+    Converts all images in the source directory to RGBA format to handle
+    transparency correctly, saving them to the target directory.
+
+    :param source_dir: The directory containing images to convert.
+    :param target_dir: The directory to save converted images. If None, overwrite the original images.
+    """
+    # If no target directory is specified, overwrite the originals
+    if target_dir is None:
+        target_dir = source_dir
+    
+    # Ensure target directory exists
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
+    
+    # Iterate through all files in the source directory
+    for filename in os.listdir(source_dir):
+        if filename.lower().endswith(('.png', '.gif')):
+            file_path = os.path.join(source_dir, filename)
+            try:
+                with Image.open(file_path) as img:
+                    # Convert image to RGBA if not already in that format
+                    if img.mode != 'RGBA':
+                        img = img.convert('RGBA')
+                        target_file_path = os.path.join(target_dir, filename)
+                        img.save(target_file_path)
+                        print(f"Converted and saved: {target_file_path}")
+                    else:
+                        print(f"Image already in RGBA format: {filename}")
+            except Exception as e:
+                print(f"Error converting {filename}: {e}")
+
 # Main menu to choose the features
 def main_menu():
     directory = None
@@ -899,6 +932,7 @@ def main_menu():
         print(str(number) + ". Clean integrated-nodes-comfyui"); number += 1
         print(str(number) + ". Find common words in prompts"); number += 1
         print(str(number) + ". Add all images in a directory to a single folder"); number += 1
+        print(str(number) + ". Convert all images to RGBA"); number += 1
         print("0. Settings/Exit")
 
         allNumbers = ""
@@ -1051,6 +1085,8 @@ def main_menu():
                 print("Common words across all prompts:", ", ".join(common_words))
             case "22":
                 copy_images_to_combined_folder(directory)
+            case "23":
+                convert_images_to_rgba(directory)
             case "0":
                 print("Options:")
                 print("1: Change ComfyUI Directory")
