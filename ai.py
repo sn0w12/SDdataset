@@ -901,6 +901,19 @@ def convert_images_to_rgba(source_dir, target_dir=None):
             except Exception as e:
                 print(f"Error converting {filename}: {e}")
 
+def add_tag_to_files(directory, tag):
+    for filename in os.listdir(directory):
+        if filename.endswith(".txt"):
+            file_path = os.path.join(directory, filename)
+            with open(file_path, 'r') as file:
+                content = file.read()
+            content_list = content.split(", ")
+            if tag not in content_list:
+                content_list.insert(random.randint(0, len(content_list)), tag)
+            modified_content = ", ".join(content_list)
+            with open(file_path, 'w') as file:
+                file.write(modified_content)
+
 # Main menu to choose the features
 def main_menu():
     directory = None
@@ -933,6 +946,7 @@ def main_menu():
         print(str(number) + ". Find common words in prompts"); number += 1
         print(str(number) + ". Add all images in a directory to a single folder"); number += 1
         print(str(number) + ". Convert all images to RGBA"); number += 1
+        print(str(number) + ". Add tag to directory .txt"); number += 1
         print("0. Settings/Exit")
 
         allNumbers = ""
@@ -1087,6 +1101,9 @@ def main_menu():
                 copy_images_to_combined_folder(directory)
             case "23":
                 convert_images_to_rgba(directory)
+            case "24":
+                tag = input("Write a tag: ").lower()
+                add_tag_to_files(directory, tag)
             case "0":
                 print("Options:")
                 print("1: Change ComfyUI Directory")
