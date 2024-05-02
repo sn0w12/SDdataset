@@ -271,7 +271,7 @@ def replace_transparent_with_white(image_path):
         if has_transparent_pixels(image):
             # Resize the image to a smaller resolution
             width, height = image.size
-            max_size = 1000  # You can adjust this value based on your requirements
+            max_size = 4096  # You can adjust this value based on your requirements
             if width > max_size or height > max_size:
                 image.thumbnail((max_size, max_size))
 
