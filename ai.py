@@ -12,20 +12,17 @@ from send2trash import send2trash
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
-import matplotlib.pyplot as plt
 from skimage.filters import gaussian
 from skimage.feature import canny
 from skimage.morphology import dilation
 from scipy import ndimage as ndi
 from skimage.measure import label, regionprops
-from skimage.color import label2rgb
 import tkinter as tk
 from tkinter import filedialog, ttk
 import cv2
 import random
 import string
 from concurrent.futures import ThreadPoolExecutor
-from queue import Queue, Empty
 from skimage import img_as_ubyte
 import glob
 import yaml
